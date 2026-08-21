@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // Buffer defines the interface for text buffer operations
@@ -44,7 +44,7 @@ type Buffer interface {
 
 	// CanRedo returns whether there are changes that can be redone
 	CanRedo() bool
-	
+
 	// Clear removes all content from the buffer and resets to empty state
 	Clear() tea.Cmd
 }

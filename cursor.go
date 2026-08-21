@@ -21,11 +21,11 @@ func newCursor(row, col int) Cursor {
 // This is called whenever the cursor moves or the window is resized
 func (m *editorModel) ensureCursorVisible() {
 	// If cursor is above the viewport, scroll up
-	if m.cursor.Row < m.viewport.YOffset {
-		m.viewport.YOffset = m.cursor.Row
-	} else if m.cursor.Row >= m.viewport.YOffset+m.height {
+	if m.cursor.Row < m.viewport.YOffset() {
+		m.viewport.SetYOffset(m.cursor.Row)
+	} else if m.cursor.Row >= m.viewport.YOffset()+m.height {
 		// If cursor is below the viewport, scroll down
-		m.viewport.YOffset = m.cursor.Row - m.height + 1
+		m.viewport.SetYOffset(m.cursor.Row - m.height + 1)
 	}
 
 	// Ensure cursor is within valid bounds

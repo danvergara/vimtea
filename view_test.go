@@ -15,8 +15,8 @@ func TestViewRenderBasics(t *testing.T) {
 	// Set up viewport size
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 	model.cursor = newCursor(3, 0)
 
 	// Render view
@@ -28,7 +28,7 @@ func TestViewRenderBasics(t *testing.T) {
 	assert.Contains(t, view, "Line 3", "View should contain 'Line 3'")
 
 	// Status line should be present
-	assert.Contains(t, strings.ToLower(view), "normal", "View should contain mode indicator 'NORMAL'")
+	assert.Contains(t, strings.ToLower(view.Content), "normal", "View should contain mode indicator 'NORMAL'")
 }
 
 func TestViewLineNumbers(t *testing.T) {
@@ -41,17 +41,17 @@ func TestViewLineNumbers(t *testing.T) {
 	// Set up viewport size
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 
 	// Render view
 	view := model.View()
 
 	// Check for line numbers
 	assert.True(t,
-		strings.Contains(view, "1") &&
-			strings.Contains(view, "2") &&
-			strings.Contains(view, "3"),
+		strings.Contains(view.Content, "1") &&
+			strings.Contains(view.Content, "2") &&
+			strings.Contains(view.Content, "3"),
 		"View should contain line numbers when enabled")
 
 	// Test relative line numbers
@@ -59,7 +59,7 @@ func TestViewLineNumbers(t *testing.T) {
 	model.cursor.Row = 2 // Set cursor to line 3
 
 	view = model.View()
-	lines := strings.Split(view, "\n")
+	lines := strings.Split(view.Content, "\n")
 
 	lineNumber := string(strings.TrimSpace(ansi.Strip(lines[2]))[0])
 	// Check for relative line numbers (current line should be absolute)
@@ -77,8 +77,8 @@ func TestViewCommandBuffer(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 
 	view := model.View()
 
@@ -96,8 +96,8 @@ func TestViewStatusMessages(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 
 	view := model.View()
 
@@ -118,8 +118,8 @@ func TestViewSyntaxHighlighting(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 
 	view := model.View()
 
@@ -142,8 +142,8 @@ func TestViewLongContent(t *testing.T) {
 	// Set up viewport with limited height
 	model.width = 40
 	model.height = 10
-	model.viewport.Width = 40
-	model.viewport.Height = 10
+	model.viewport.SetWidth(40)
+	model.viewport.SetHeight(10)
 
 	// Position cursor far down
 	model.cursor = newCursor(50, 0)

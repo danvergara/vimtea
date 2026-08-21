@@ -1,7 +1,7 @@
 // Package vimtea provides a Vim-like text editor component for terminal applications
 package vimtea
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 // wrappedBuffer adapts the internal buffer implementation to the Buffer interface
 // This wrapping pattern allows the editor model to expose a buffer interface

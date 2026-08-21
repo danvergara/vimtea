@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
 )
 
@@ -82,7 +81,8 @@ type editorModel struct {
 	yankBuffer     string  // Clipboard
 	lastOp         string  // Last operation performed (for repeating with .)
 	fullScreen     bool    // Whether to use the full terminal screen
-	initialContent string  // Initial content used to create the editor
+	altScreen      bool
+	initialContent string // Initial content used to create the editor
 
 	mode              EditorMode // Current mode
 	enableCommandMode bool       // Whether command mode is enabled
@@ -139,6 +139,7 @@ type options struct {
 	FileName               string         // Filename for syntax highlighting
 	RelativeNumbers        bool           // Whether to show relative line numbers
 	FullScreen             bool           // Whether to use the full terminal screen
+	AltScreen              bool
 }
 
 // EditorOption is a function that modifies the editor options
@@ -172,14 +173,16 @@ func NewEditor(opts ...EditorOption) Editor {
 	cpErr := clipboard.Init()
 
 	m := &editorModel{
-		buffer:                 newBuffer(options.Content),
-		mode:                   ModeNormal,
+		buffer: newBuffer(options.Content),
+		mode:   ModeNormal,
+
 		fullScreen:             options.FullScreen,
+		altScreen:              options.AltScreen,
 		enableCommandMode:      options.EnableCommandMode,
 		enableStatusBar:        options.EnableStatusBar,
 		cursor:                 newCursor(0, 0),
 		keySequence:            []string{},
-		viewport:               viewport.New(0, 0),
+		viewport:               viewport.New(viewport.WithHeight(0), viewport.WithWidth(0)),
 		cursorBlink:            true,
 		lastBlinkTime:          time.Now(),
 		blinkInterval:          options.BlinkInterval,
@@ -320,11 +323,11 @@ func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
 	}
 
 	// Update viewport dimensions
-	m.viewport.Width = width
-	m.viewport.Height = height
+	m.viewport.SetWidth(width)
+	m.viewport.SetHeight(height)
 
 	if m.enableStatusBar {
-		m.viewport.Height = height - 2
+		m.viewport.SetHeight(height - 2)
 	}
 
 	// Ensure cursor is visible after resize
@@ -585,7 +588,7 @@ func (m *editorModel) Reset() tea.Cmd {
 	m.countPrefix = 1
 
 	// Reset viewport
-	m.viewport.YOffset = 0
+	m.viewport.SetYOffset(0)
 	m.ensureCursorVisible()
 
 	// Return a command that updates the status message
@@ -698,5 +701,11 @@ func WithRelativeNumbers(enable bool) EditorOption {
 func WithFullScreen() EditorOption {
 	return func(o *options) {
 		o.FullScreen = true
+	}
+}
+
+func WithAltScreen() EditorOption {
+	return func(o *options) {
+		o.AltScreen = true
 	}
 }

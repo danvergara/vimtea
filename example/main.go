@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/kujtimiihoxha/vimtea"
+	tea "charm.land/bubbletea/v2"
+	"github.com/danvergara/vimtea"
 )
 
 func main() {
@@ -44,6 +44,7 @@ func main() {
 		vimtea.WithContent(string(buf)),
 		vimtea.WithFileName("example/main.go"),
 		vimtea.WithFullScreen(),
+		vimtea.WithAltScreen(),
 	)
 
 	// Add a custom key binding for quitting with Ctrl+C
@@ -61,7 +62,7 @@ func main() {
 		return tea.Quit
 	})
 
-	p := tea.NewProgram(editor, tea.WithAltScreen())
+	p := tea.NewProgram(editor)
 	if _, err := p.Run(); err != nil {
 		log.Printf("Error running program: %v", err)
 	}
