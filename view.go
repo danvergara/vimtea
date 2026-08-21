@@ -112,7 +112,7 @@ func (m *editorModel) renderContent() string {
 	visibleContent := m.getVisibleContent()
 
 	for i, line := range visibleContent {
-		lineNum := i + m.viewport.YOffset() + 1
+		lineNum := i + m.yOffset + 1
 		rowIdx := lineNum - 1
 
 		sb.WriteString(m.renderLineNumber(lineNum, rowIdx))
@@ -775,7 +775,7 @@ func (m *editorModel) renderLineInVisualSelectionPlain(line string, rowIdx int, 
 }
 
 func (m editorModel) getVisibleContent() []string {
-	startLine := m.viewport.YOffset()
+	startLine := m.yOffset
 	endLine := startLine + m.height
 
 	if startLine < 0 {

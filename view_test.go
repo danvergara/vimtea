@@ -15,17 +15,15 @@ func TestViewRenderBasics(t *testing.T) {
 	// Set up viewport size
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
 	model.cursor = newCursor(3, 0)
 
 	// Render view
 	view := model.View()
 
 	// Basic content checks
-	assert.Contains(t, view, "Line 1", "View should contain 'Line 1'")
-	assert.Contains(t, view, "Line 2", "View should contain 'Line 2'")
-	assert.Contains(t, view, "Line 3", "View should contain 'Line 3'")
+	assert.Contains(t, view.Content, "Line 1", "View should contain 'Line 1'")
+	assert.Contains(t, view.Content, "Line 2", "View should contain 'Line 2'")
+	assert.Contains(t, view.Content, "Line 3", "View should contain 'Line 3'")
 
 	// Status line should be present
 	assert.Contains(t, strings.ToLower(view.Content), "normal", "View should contain mode indicator 'NORMAL'")
@@ -41,8 +39,6 @@ func TestViewLineNumbers(t *testing.T) {
 	// Set up viewport size
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
 
 	// Render view
 	view := model.View()
@@ -77,13 +73,10 @@ func TestViewCommandBuffer(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
-
 	view := model.View()
 
 	// Command should be shown in status area
-	assert.Contains(t, view, ":test", "View should show command buffer in command mode")
+	assert.Contains(t, view.Content, ":test", "View should show command buffer in command mode")
 }
 
 func TestViewStatusMessages(t *testing.T) {
@@ -96,13 +89,10 @@ func TestViewStatusMessages(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
-
 	view := model.View()
 
 	// Status message should be displayed
-	assert.Contains(t, view, "Test status message", "View should show status message")
+	assert.Contains(t, view.Content, "Test status message", "View should show status message")
 }
 
 func TestViewSyntaxHighlighting(t *testing.T) {
@@ -118,13 +108,11 @@ func TestViewSyntaxHighlighting(t *testing.T) {
 	// Set up viewport
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
 
 	view := model.View()
 
 	// Syntax highlighting should add ANSI codes
-	assert.Contains(t, view, "\033[", "View should contain ANSI codes for syntax highlighting")
+	assert.Contains(t, view.Content, "\033[", "View should contain ANSI codes for syntax highlighting")
 }
 
 func TestViewLongContent(t *testing.T) {
@@ -142,8 +130,6 @@ func TestViewLongContent(t *testing.T) {
 	// Set up viewport with limited height
 	model.width = 40
 	model.height = 10
-	model.viewport.SetWidth(40)
-	model.viewport.SetHeight(10)
 
 	// Position cursor far down
 	model.cursor = newCursor(50, 0)
@@ -152,8 +138,8 @@ func TestViewLongContent(t *testing.T) {
 	view := model.View()
 
 	// View should contain content near cursor position
-	assert.Contains(t, view, "Line 0", "View should contain visible content near cursor")
+	assert.Contains(t, view.Content, "Line 0", "View should contain visible content near cursor")
 
 	// First lines should not be visible
-	assert.NotContains(t, view, "Line 1\nLine 2", "View should not contain content from beginning when scrolled down")
+	assert.NotContains(t, view.Content, "Line 1\nLine 2", "View should not contain content from beginning when scrolled down")
 }

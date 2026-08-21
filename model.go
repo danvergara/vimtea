@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
@@ -35,6 +34,10 @@ const (
 
 // cursorBlinkMsg is used for cursor blinking animation
 type cursorBlinkMsg time.Time
+
+// clipboardMsg carries text that appeared on the system clipboard from outside
+// the editor, so it can be adopted as the yank buffer inside Update
+type clipboardMsg string
 
 // String returns the string representation of the editor mode
 func (m EditorMode) String() string {
@@ -78,7 +81,7 @@ type Editor interface {
 type editorModel struct {
 	buffer         *buffer // Text buffer with undo/redo
 	cursor         Cursor  // Current cursor position
-	yankBuffer     string  // Clipboard
+	yankBuffer     string  // Yank register, the source of truth for paste
 	lastOp         string  // Last operation performed (for repeating with .)
 	fullScreen     bool    // Whether to use the full terminal screen
 	altScreen      bool
@@ -97,14 +100,17 @@ type editorModel struct {
 
 	relativeNumbers bool // Whether to show relative line numbers
 
-	viewport        viewport.Model // For scrolling
-	width           int            // Window width
-	height          int            // Window height
-	statusMessage   string         // Current status message
-	cursorBlink     bool           // Whether cursor is visible (for blinking)
-	lastBlinkTime   time.Time      // Time of last cursor blink
-	blinkInterval   time.Duration  // Cursor blink interval
-	enableStatusBar bool           // Whether to show the status bar
+	clipboardOK bool          // Whether the system clipboard initialized successfully
+	clipboardCh <-chan []byte // External clipboard changes, nil when unavailable
+
+	yOffset         int
+	width           int           // Window width
+	height          int           // Window height
+	statusMessage   string        // Current status message
+	cursorBlink     bool          // Whether cursor is visible (for blinking)
+	lastBlinkTime   time.Time     // Time of last cursor blink
+	blinkInterval   time.Duration // Cursor blink interval
+	enableStatusBar bool          // Whether to show the status bar
 
 	lineNumberStyle        lipgloss.Style
 	currentLineNumberStyle lipgloss.Style
@@ -170,7 +176,9 @@ func NewEditor(opts ...EditorOption) Editor {
 		opt(options)
 	}
 
-	cpErr := clipboard.Init()
+	// The clipboard package panics on Read/Write/Watch if Init failed, so every
+	// call has to be guarded by clipboardOK
+	clipboardOK := clipboard.Init() == nil
 
 	m := &editorModel{
 		buffer: newBuffer(options.Content),
@@ -182,7 +190,6 @@ func NewEditor(opts ...EditorOption) Editor {
 		enableStatusBar:        options.EnableStatusBar,
 		cursor:                 newCursor(0, 0),
 		keySequence:            []string{},
-		viewport:               viewport.New(viewport.WithHeight(0), viewport.WithWidth(0)),
 		cursorBlink:            true,
 		lastBlinkTime:          time.Now(),
 		blinkInterval:          options.BlinkInterval,
@@ -195,6 +202,7 @@ func NewEditor(opts ...EditorOption) Editor {
 		selectedStyle:          options.SelectedStyle,
 		relativeNumbers:        options.RelativeNumbers,
 		countPrefix:            1,
+		clipboardOK:            clipboardOK,
 
 		highlighter:    newSyntaxHighlighter(options.DefaultSyntaxTheme, options.FileName),
 		yankHighlight:  newYankHighlight(),
@@ -202,14 +210,9 @@ func NewEditor(opts ...EditorOption) Editor {
 		commands:       newCommandRegistry(),
 		initialContent: options.Content,
 	}
-	go func() {
-		if cpErr != nil {
-			ch := clipboard.Watch(context.Background(), clipboard.FmtText)
-			for data := range ch {
-				m.yankBuffer = string(data)
-			}
-		}
-	}()
+	if clipboardOK {
+		m.clipboardCh = clipboard.Watch(context.Background(), clipboard.FmtText)
+	}
 
 	// Register default key bindings
 	registerBindings(m)
@@ -223,9 +226,35 @@ func cursorBlinkCmd() tea.Cmd {
 	})
 }
 
+// syncClipboard mirrors the yank buffer onto the system clipboard, if one is
+// available. The yank buffer stays authoritative either way
+func (m *editorModel) syncClipboard() {
+	if !m.clipboardOK {
+		return
+	}
+	clipboard.Write(clipboard.FmtText, []byte(m.yankBuffer))
+}
+
+// watchClipboardCmd waits for the next external clipboard change and delivers it
+// as a message, so the yank buffer is only ever written from Update
+func (m *editorModel) watchClipboardCmd() tea.Cmd {
+	ch := m.clipboardCh
+	if ch == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		data, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return clipboardMsg(data)
+	}
+}
+
 // Init initializes the editor model and returns the cursor blink command
 func (m *editorModel) Init() tea.Cmd {
-	return cursorBlinkCmd()
+	return tea.Batch(cursorBlinkCmd(), m.watchClipboardCmd())
 }
 
 // Update handles messages and updates the editor state
@@ -234,7 +263,7 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Reset cursor blink on keypress
 		m.cursorBlink = true
 		m.lastBlinkTime = time.Now()
@@ -243,7 +272,6 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.fullScreen {
 			return m.SetSize(msg.Width, msg.Height)
 		}
-
 	case cursorBlinkMsg:
 		// Handle cursor blinking animation
 		now := time.Time(msg)
@@ -257,6 +285,12 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.yankHighlight.Active = false
 		}
 		cmd = cursorBlinkCmd()
+
+	case clipboardMsg:
+		// Something outside the editor copied text; adopt it as the yank buffer
+		// and keep listening
+		m.yankBuffer = string(msg)
+		cmd = m.watchClipboardCmd()
 
 	case statusMessageMsg:
 		m.statusMessage = string(msg)
@@ -322,21 +356,13 @@ func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
 		m.height = height - 2
 	}
 
-	// Update viewport dimensions
-	m.viewport.SetWidth(width)
-	m.viewport.SetHeight(height)
-
-	if m.enableStatusBar {
-		m.viewport.SetHeight(height - 2)
-	}
-
 	// Ensure cursor is visible after resize
 	m.ensureCursorVisible()
 	return m, nil
 }
 
 // handleKeypress processes keyboard input based on the current editor mode
-func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *editorModel) handleKeypress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case ModeNormal:
 		// Normal mode uses key sequence handling for multi-key commands
@@ -350,8 +376,8 @@ func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		} else {
 			// Insert regular characters
-			if len(msg.String()) == 1 {
-				return insertCharacter(m, msg.String())
+			if len(msg.Text) == 1 {
+				return insertCharacter(m, msg.Text)
 			}
 		}
 
@@ -588,7 +614,7 @@ func (m *editorModel) Reset() tea.Cmd {
 	m.countPrefix = 1
 
 	// Reset viewport
-	m.viewport.SetYOffset(0)
+	m.yOffset = 0
 	m.ensureCursorVisible()
 
 	// Return a command that updates the status message

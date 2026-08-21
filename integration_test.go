@@ -47,16 +47,14 @@ func TestViewportIntegration(t *testing.T) {
 
 	model.width = 80
 	model.height = 20
-	model.viewport.SetWidth(80)
-	model.viewport.SetHeight(20)
 
 	model.cursor = newCursor(25, 0)
 
 	model.ensureCursorVisible()
 
-	assert.GreaterOrEqual(t, model.cursor.Row, model.viewport.YOffset(),
+	assert.GreaterOrEqual(t, model.cursor.Row, model.yOffset,
 		"Cursor row should be within or after viewport start")
-	assert.Less(t, model.cursor.Row, model.viewport.YOffset()+model.viewport.Height(),
+	assert.Less(t, model.cursor.Row, model.yOffset+model.height,
 		"Cursor row should be within viewport end")
 }
 
