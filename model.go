@@ -376,7 +376,7 @@ func (m *editorModel) handleKeypress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		} else {
 			// Insert regular characters
-			if len(msg.Text) == 1 {
+			if msg.Text != "" {
 				return insertCharacter(m, msg.Text)
 			}
 		}
@@ -392,8 +392,8 @@ func (m *editorModel) handleKeypress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		} else {
 			// Add character to command buffer
-			if len(msg.String()) == 1 {
-				return addCommandCharacter(m, msg.String())
+			if msg.Text != "" {
+				return addCommandCharacter(m, msg.Text)
 			}
 		}
 	}
@@ -402,8 +402,18 @@ func (m *editorModel) handleKeypress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // handlePrefixKeypress creates a handler for key sequences and numeric prefixes
 // This implements Vim-style command sequences like "3dw" or "dd"
-func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return func(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	return func(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+		reset := func() {
+			m.keySequence = []string{}
+			m.countPrefix = 1
+		}
+		accept := func(b *internalKeyBinding) (tea.Model, tea.Cmd) {
+			cmd := b.Command(m)
+			reset()
+			return m, cmd
+		}
+
 		now := time.Now()
 
 		// Check for key sequence timeout - if the sequence hasn't been completed
@@ -413,15 +423,11 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 
 			// Try to execute the sequence if it matches a binding
 			if binding := m.registry.FindExact(seq, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				m.countPrefix = 1
-				return m, cmd
+				return accept(binding)
 			}
 
 			// Reset sequence if timeout reached
-			m.keySequence = []string{}
-			m.countPrefix = 1
+			reset()
 		}
 		m.lastKeyTime = now
 
@@ -460,10 +466,7 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 
 		// Check if the sequence exactly matches a binding
 		if binding := m.registry.FindExact(seq, mode); binding != nil {
-			cmd := binding.Command(m)
-			m.keySequence = []string{}
-			defer func() { m.countPrefix = 1 }()
-			return m, cmd
+			return accept(binding)
 		}
 
 		// If the sequence is a prefix of a longer binding, wait for more input
@@ -484,20 +487,14 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 		if nonDigitStart > 0 && nonDigitStart < len(m.keySequence) {
 			cmdPart := strings.Join(m.keySequence[nonDigitStart:], "")
 			if binding := m.registry.FindExact(cmdPart, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		}
 
 		// Fallback: try to execute just the single key
 		if len(m.keySequence) == 1 {
 			if binding := m.registry.FindExact(keyStr, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		} else {
 			// Try with just the last key in sequence
@@ -505,16 +502,12 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 			m.keySequence = []string{lastKey}
 
 			if binding := m.registry.FindExact(lastKey, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		}
 
 		// No match found, reset everything
-		m.keySequence = []string{}
-		m.countPrefix = 1
+		reset()
 		return m, nil
 	}
 }

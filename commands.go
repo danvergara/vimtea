@@ -88,7 +88,7 @@ func registerBindings(m *editorModel) {
 		m.registry.Add("w", moveToNextWordStart, mode, "Move to next word")
 		m.registry.Add("b", moveToPrevWordStart, mode, "Move to previous word")
 
-		m.registry.Add(" ", moveCursorRightOrNextLine, mode, "Move cursor right")
+		m.registry.Add("space", moveCursorRightOrNextLine, mode, "Move cursor right")
 		m.registry.Add("0", moveToStartOfLine, mode, "Move to start of line")
 		m.registry.Add("^", moveToFirstNonWhitespace, mode, "Move to first non-whitespace character")
 		m.registry.Add("$", moveToEndOfLine, mode, "Move to end of line")
