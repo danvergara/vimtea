@@ -1,7 +1,7 @@
 // Package vimtea provides a Vim-like text editor component for terminal applications
 package vimtea
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 // Command is a function that performs an action on the editor model
 // and returns a bubbletea command

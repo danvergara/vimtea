@@ -9,10 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
 )
 
@@ -36,6 +34,10 @@ const (
 
 // cursorBlinkMsg is used for cursor blinking animation
 type cursorBlinkMsg time.Time
+
+// clipboardMsg carries text that appeared on the system clipboard from outside
+// the editor, so it can be adopted as the yank buffer inside Update
+type clipboardMsg string
 
 // String returns the string representation of the editor mode
 func (m EditorMode) String() string {
@@ -79,10 +81,11 @@ type Editor interface {
 type editorModel struct {
 	buffer         *buffer // Text buffer with undo/redo
 	cursor         Cursor  // Current cursor position
-	yankBuffer     string  // Clipboard
+	yankBuffer     string  // Yank register, the source of truth for paste
 	lastOp         string  // Last operation performed (for repeating with .)
 	fullScreen     bool    // Whether to use the full terminal screen
-	initialContent string  // Initial content used to create the editor
+	altScreen      bool
+	initialContent string // Initial content used to create the editor
 
 	mode              EditorMode // Current mode
 	enableCommandMode bool       // Whether command mode is enabled
@@ -97,14 +100,17 @@ type editorModel struct {
 
 	relativeNumbers bool // Whether to show relative line numbers
 
-	viewport        viewport.Model // For scrolling
-	width           int            // Window width
-	height          int            // Window height
-	statusMessage   string         // Current status message
-	cursorBlink     bool           // Whether cursor is visible (for blinking)
-	lastBlinkTime   time.Time      // Time of last cursor blink
-	blinkInterval   time.Duration  // Cursor blink interval
-	enableStatusBar bool           // Whether to show the status bar
+	clipboardOK bool          // Whether the system clipboard initialized successfully
+	clipboardCh <-chan []byte // External clipboard changes, nil when unavailable
+
+	yOffset         int
+	width           int           // Window width
+	height          int           // Window height
+	statusMessage   string        // Current status message
+	cursorBlink     bool          // Whether cursor is visible (for blinking)
+	lastBlinkTime   time.Time     // Time of last cursor blink
+	blinkInterval   time.Duration // Cursor blink interval
+	enableStatusBar bool          // Whether to show the status bar
 
 	lineNumberStyle        lipgloss.Style
 	currentLineNumberStyle lipgloss.Style
@@ -139,6 +145,7 @@ type options struct {
 	FileName               string         // Filename for syntax highlighting
 	RelativeNumbers        bool           // Whether to show relative line numbers
 	FullScreen             bool           // Whether to use the full terminal screen
+	AltScreen              bool
 }
 
 // EditorOption is a function that modifies the editor options
@@ -169,17 +176,20 @@ func NewEditor(opts ...EditorOption) Editor {
 		opt(options)
 	}
 
-	cpErr := clipboard.Init()
+	// The clipboard package panics on Read/Write/Watch if Init failed, so every
+	// call has to be guarded by clipboardOK
+	clipboardOK := clipboard.Init() == nil
 
 	m := &editorModel{
-		buffer:                 newBuffer(options.Content),
-		mode:                   ModeNormal,
+		buffer: newBuffer(options.Content),
+		mode:   ModeNormal,
+
 		fullScreen:             options.FullScreen,
+		altScreen:              options.AltScreen,
 		enableCommandMode:      options.EnableCommandMode,
 		enableStatusBar:        options.EnableStatusBar,
 		cursor:                 newCursor(0, 0),
 		keySequence:            []string{},
-		viewport:               viewport.New(0, 0),
 		cursorBlink:            true,
 		lastBlinkTime:          time.Now(),
 		blinkInterval:          options.BlinkInterval,
@@ -192,6 +202,7 @@ func NewEditor(opts ...EditorOption) Editor {
 		selectedStyle:          options.SelectedStyle,
 		relativeNumbers:        options.RelativeNumbers,
 		countPrefix:            1,
+		clipboardOK:            clipboardOK,
 
 		highlighter:    newSyntaxHighlighter(options.DefaultSyntaxTheme, options.FileName),
 		yankHighlight:  newYankHighlight(),
@@ -199,14 +210,9 @@ func NewEditor(opts ...EditorOption) Editor {
 		commands:       newCommandRegistry(),
 		initialContent: options.Content,
 	}
-	go func() {
-		if cpErr != nil {
-			ch := clipboard.Watch(context.Background(), clipboard.FmtText)
-			for data := range ch {
-				m.yankBuffer = string(data)
-			}
-		}
-	}()
+	if clipboardOK {
+		m.clipboardCh = clipboard.Watch(context.Background(), clipboard.FmtText)
+	}
 
 	// Register default key bindings
 	registerBindings(m)
@@ -220,9 +226,35 @@ func cursorBlinkCmd() tea.Cmd {
 	})
 }
 
+// syncClipboard mirrors the yank buffer onto the system clipboard, if one is
+// available. The yank buffer stays authoritative either way
+func (m *editorModel) syncClipboard() {
+	if !m.clipboardOK {
+		return
+	}
+	clipboard.Write(clipboard.FmtText, []byte(m.yankBuffer))
+}
+
+// watchClipboardCmd waits for the next external clipboard change and delivers it
+// as a message, so the yank buffer is only ever written from Update
+func (m *editorModel) watchClipboardCmd() tea.Cmd {
+	ch := m.clipboardCh
+	if ch == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		data, ok := <-ch
+		if !ok {
+			return nil
+		}
+		return clipboardMsg(data)
+	}
+}
+
 // Init initializes the editor model and returns the cursor blink command
 func (m *editorModel) Init() tea.Cmd {
-	return cursorBlinkCmd()
+	return tea.Batch(cursorBlinkCmd(), m.watchClipboardCmd())
 }
 
 // Update handles messages and updates the editor state
@@ -231,7 +263,7 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Reset cursor blink on keypress
 		m.cursorBlink = true
 		m.lastBlinkTime = time.Now()
@@ -240,7 +272,6 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.fullScreen {
 			return m.SetSize(msg.Width, msg.Height)
 		}
-
 	case cursorBlinkMsg:
 		// Handle cursor blinking animation
 		now := time.Time(msg)
@@ -254,6 +285,12 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.yankHighlight.Active = false
 		}
 		cmd = cursorBlinkCmd()
+
+	case clipboardMsg:
+		// Something outside the editor copied text; adopt it as the yank buffer
+		// and keep listening
+		m.yankBuffer = string(msg)
+		cmd = m.watchClipboardCmd()
 
 	case statusMessageMsg:
 		m.statusMessage = string(msg)
@@ -319,21 +356,13 @@ func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
 		m.height = height - 2
 	}
 
-	// Update viewport dimensions
-	m.viewport.Width = width
-	m.viewport.Height = height
-
-	if m.enableStatusBar {
-		m.viewport.Height = height - 2
-	}
-
 	// Ensure cursor is visible after resize
 	m.ensureCursorVisible()
 	return m, nil
 }
 
 // handleKeypress processes keyboard input based on the current editor mode
-func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *editorModel) handleKeypress(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case ModeNormal:
 		// Normal mode uses key sequence handling for multi-key commands
@@ -347,8 +376,8 @@ func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		} else {
 			// Insert regular characters
-			if len(msg.String()) == 1 {
-				return insertCharacter(m, msg.String())
+			if msg.Text != "" {
+				return insertCharacter(m, msg.Text)
 			}
 		}
 
@@ -363,8 +392,8 @@ func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		} else {
 			// Add character to command buffer
-			if len(msg.String()) == 1 {
-				return addCommandCharacter(m, msg.String())
+			if msg.Text != "" {
+				return addCommandCharacter(m, msg.Text)
 			}
 		}
 	}
@@ -373,8 +402,18 @@ func (m *editorModel) handleKeypress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // handlePrefixKeypress creates a handler for key sequences and numeric prefixes
 // This implements Vim-style command sequences like "3dw" or "dd"
-func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return func(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	return func(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+		reset := func() {
+			m.keySequence = []string{}
+			m.countPrefix = 1
+		}
+		accept := func(b *internalKeyBinding) (tea.Model, tea.Cmd) {
+			cmd := b.Command(m)
+			reset()
+			return m, cmd
+		}
+
 		now := time.Now()
 
 		// Check for key sequence timeout - if the sequence hasn't been completed
@@ -384,15 +423,11 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 
 			// Try to execute the sequence if it matches a binding
 			if binding := m.registry.FindExact(seq, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				m.countPrefix = 1
-				return m, cmd
+				return accept(binding)
 			}
 
 			// Reset sequence if timeout reached
-			m.keySequence = []string{}
-			m.countPrefix = 1
+			reset()
 		}
 		m.lastKeyTime = now
 
@@ -431,10 +466,7 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 
 		// Check if the sequence exactly matches a binding
 		if binding := m.registry.FindExact(seq, mode); binding != nil {
-			cmd := binding.Command(m)
-			m.keySequence = []string{}
-			defer func() { m.countPrefix = 1 }()
-			return m, cmd
+			return accept(binding)
 		}
 
 		// If the sequence is a prefix of a longer binding, wait for more input
@@ -455,20 +487,14 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 		if nonDigitStart > 0 && nonDigitStart < len(m.keySequence) {
 			cmdPart := strings.Join(m.keySequence[nonDigitStart:], "")
 			if binding := m.registry.FindExact(cmdPart, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		}
 
 		// Fallback: try to execute just the single key
 		if len(m.keySequence) == 1 {
 			if binding := m.registry.FindExact(keyStr, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		} else {
 			// Try with just the last key in sequence
@@ -476,16 +502,12 @@ func (m *editorModel) handlePrefixKeypress(mode EditorMode) func(msg tea.KeyMsg)
 			m.keySequence = []string{lastKey}
 
 			if binding := m.registry.FindExact(lastKey, mode); binding != nil {
-				cmd := binding.Command(m)
-				m.keySequence = []string{}
-				defer func() { m.countPrefix = 1 }()
-				return m, cmd
+				return accept(binding)
 			}
 		}
 
 		// No match found, reset everything
-		m.keySequence = []string{}
-		m.countPrefix = 1
+		reset()
 		return m, nil
 	}
 }
@@ -585,7 +607,7 @@ func (m *editorModel) Reset() tea.Cmd {
 	m.countPrefix = 1
 
 	// Reset viewport
-	m.viewport.YOffset = 0
+	m.yOffset = 0
 	m.ensureCursorVisible()
 
 	// Return a command that updates the status message
@@ -698,5 +720,11 @@ func WithRelativeNumbers(enable bool) EditorOption {
 func WithFullScreen() EditorOption {
 	return func(o *options) {
 		o.FullScreen = true
+	}
+}
+
+func WithAltScreen() EditorOption {
+	return func(o *options) {
+		o.AltScreen = true
 	}
 }

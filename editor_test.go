@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -40,7 +40,7 @@ func TestEditorKeypressHandling(t *testing.T) {
 	editor := NewEditor()
 	model := editor.(*editorModel)
 
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}}
+	keyMsg := tea.KeyPressMsg{Code: 'i', Text: "i"}
 	updated, _ := model.handleKeypress(keyMsg)
 	model = updated.(*editorModel)
 
@@ -49,7 +49,7 @@ func TestEditorKeypressHandling(t *testing.T) {
 	model.mode = ModeNormal
 
 	model.mode = ModeInsert
-	keyMsg = tea.KeyMsg{Type: tea.KeyEsc}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyEsc}
 	updated2, _ := model.handleKeypress(keyMsg)
 	model = updated2.(*editorModel)
 
@@ -105,14 +105,14 @@ func TestEditorInsertDelete(t *testing.T) {
 	editor.SetMode(ModeInsert)
 
 	for _, ch := range "Hello" {
-		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}}
+		keyMsg := tea.KeyPressMsg{Code: ch, Text: string(ch)}
 		updated, _ := model.handleKeypress(keyMsg)
 		model = updated.(*editorModel)
 	}
 
 	assert.Equal(t, "Hello", buffer.Text(), "Buffer content should be 'Hello'")
 
-	keyMsg := tea.KeyMsg{Type: tea.KeyBackspace}
+	keyMsg := tea.KeyPressMsg{Code: tea.KeyBackspace}
 	model.handleKeypress(keyMsg)
 
 	assert.Equal(t, "Hell", buffer.Text(), "After deletion, buffer content should be 'Hell'")
@@ -126,7 +126,7 @@ func TestEditorUndoRedo(t *testing.T) {
 	editor.SetMode(ModeInsert)
 
 	for _, ch := range "test undo" {
-		keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}}
+		keyMsg := tea.KeyPressMsg{Code: ch, Text: string(ch)}
 		updated, _ := model.handleKeypress(keyMsg)
 		model = updated.(*editorModel)
 	}
@@ -235,9 +235,7 @@ func TestEditorMultipleBindings(t *testing.T) {
 	model := editor.(*editorModel)
 	model.Init()
 
-	keyMsg := tea.KeyMsg{
-		Type: tea.KeyCtrlT,
-	}
+	keyMsg := tea.KeyPressMsg{Code: 't', Mod: tea.ModCtrl}
 
 	model.handleKeypress(keyMsg)
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +38,7 @@ func TestModelUpdate(t *testing.T) {
 	model := editor.(*editorModel)
 
 	// Test key message handling
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}}
+	keyMsg := tea.KeyPressMsg{Code: 'i', Text: "i"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
@@ -68,7 +68,7 @@ func TestModelKeySequences(t *testing.T) {
 	require.NotNil(t, binding, "Built-in binding for 'dd' should exist")
 
 	// First 'd' key press
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}}
+	keyMsg := tea.KeyPressMsg{Code: 'd', Text: "d"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
@@ -95,14 +95,14 @@ func TestModelCountPrefix(t *testing.T) {
 	model := editor.(*editorModel)
 
 	// Press '3'
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'3'}}
+	keyMsg := tea.KeyPressMsg{Code: '3', Text: "3"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
 	assert.Equal(t, 3, updatedModel.countPrefix, "Count prefix should be 3")
 
 	// Press 'j' to move down 3 lines
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	keyMsg = tea.KeyPressMsg{Code: 'j', Text: "j"}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
@@ -112,11 +112,11 @@ func TestModelCountPrefix(t *testing.T) {
 	assert.Equal(t, 1, updatedModel.countPrefix, "Count prefix should be reset after use")
 
 	// Test multi-digit count
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'1'}}
+	keyMsg = tea.KeyPressMsg{Code: '1', Text: "1"}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}}
+	keyMsg = tea.KeyPressMsg{Code: '2', Text: "2"}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
@@ -128,7 +128,7 @@ func TestModelCommandMode(t *testing.T) {
 	model := editor.(*editorModel)
 
 	// Enter command mode
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}}
+	keyMsg := tea.KeyPressMsg{Code: ':', Text: ":"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
@@ -136,7 +136,7 @@ func TestModelCommandMode(t *testing.T) {
 
 	// Type command
 	for _, ch := range "test" {
-		keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}}
+		keyMsg = tea.KeyPressMsg{Code: ch, Text: string(ch)}
 		updated, _ = updatedModel.Update(keyMsg)
 		updatedModel = updated.(*editorModel)
 	}
@@ -151,7 +151,7 @@ func TestModelCommandMode(t *testing.T) {
 	})
 
 	// Execute command with Enter
-	keyMsg = tea.KeyMsg{Type: tea.KeyEnter}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyEnter}
 	updated, cmd := updatedModel.Update(keyMsg)
 	for cmd != nil {
 		updated, cmd = updatedModel.Update(cmd())
@@ -165,7 +165,7 @@ func TestModelCommandMode(t *testing.T) {
 	updatedModel.mode = ModeCommand
 	updatedModel.commandBuffer = "test"
 
-	keyMsg = tea.KeyMsg{Type: tea.KeyBackspace}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyBackspace}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
@@ -177,7 +177,7 @@ func TestModelVisualMode(t *testing.T) {
 	model := editor.(*editorModel)
 
 	// Enter visual mode
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}}
+	keyMsg := tea.KeyPressMsg{Code: 'v', Text: "v"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
@@ -186,7 +186,7 @@ func TestModelVisualMode(t *testing.T) {
 	assert.Equal(t, 0, updatedModel.visualStart.Col, "Visual start column should be 0")
 
 	// Move cursor to create selection
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	keyMsg = tea.KeyPressMsg{Code: 'j', Text: "j"}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
@@ -197,7 +197,7 @@ func TestModelVisualMode(t *testing.T) {
 	assert.Equal(t, 1, end.Row, "Selection end row should be 1")
 
 	// Test yank in visual mode
-	keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}}
+	keyMsg = tea.KeyPressMsg{Code: 'y', Text: "y"}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 
@@ -210,7 +210,7 @@ func TestModelInsertMode(t *testing.T) {
 	model := editor.(*editorModel)
 
 	// Enter insert mode
-	keyMsg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}}
+	keyMsg := tea.KeyPressMsg{Code: 'i', Text: "i"}
 	updated, _ := model.Update(keyMsg)
 	updatedModel := updated.(*editorModel)
 
@@ -219,7 +219,7 @@ func TestModelInsertMode(t *testing.T) {
 
 	// Type some text
 	for _, ch := range " inserted" {
-		keyMsg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}}
+		keyMsg = tea.KeyPressMsg{Code: ch, Text: string(ch)}
 		updated, _ = updatedModel.Update(keyMsg)
 		updatedModel = updated.(*editorModel)
 	}
@@ -228,7 +228,7 @@ func TestModelInsertMode(t *testing.T) {
 	assert.Equal(t, expectedText, updatedModel.buffer.text(), "Buffer content should match expected after insertion")
 
 	// Exit insert mode
-	keyMsg = tea.KeyMsg{Type: tea.KeyEsc}
+	keyMsg = tea.KeyPressMsg{Code: tea.KeyEsc}
 	updated, _ = updatedModel.Update(keyMsg)
 	updatedModel = updated.(*editorModel)
 

@@ -7,7 +7,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Regular expression for matching ANSI escape sequences
@@ -79,7 +80,10 @@ func renderLineWithTabs(line string) string {
 
 // View renders the editor and returns it as a string
 // This is part of the bubbletea.Model interface
-func (m *editorModel) View() string {
+func (m *editorModel) View() tea.View {
+	var v tea.View
+	v.AltScreen = m.altScreen
+
 	// Build components from top to bottom
 	components := []string{
 		m.renderContent(), // Main editor content
@@ -89,10 +93,12 @@ func (m *editorModel) View() string {
 	}
 
 	// Join all components vertically
-	return lipgloss.JoinVertical(
+	v.SetContent(lipgloss.JoinVertical(
 		lipgloss.Top,
 		components...,
-	)
+	))
+
+	return v
 }
 
 func (m *editorModel) renderContent() string {
@@ -106,7 +112,7 @@ func (m *editorModel) renderContent() string {
 	visibleContent := m.getVisibleContent()
 
 	for i, line := range visibleContent {
-		lineNum := i + m.viewport.YOffset + 1
+		lineNum := i + m.yOffset + 1
 		rowIdx := lineNum - 1
 
 		sb.WriteString(m.renderLineNumber(lineNum, rowIdx))
@@ -769,7 +775,7 @@ func (m *editorModel) renderLineInVisualSelectionPlain(line string, rowIdx int, 
 }
 
 func (m editorModel) getVisibleContent() []string {
-	startLine := m.viewport.YOffset
+	startLine := m.yOffset
 	endLine := startLine + m.height
 
 	if startLine < 0 {

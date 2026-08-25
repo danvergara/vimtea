@@ -3,7 +3,8 @@ package vimtea
 import (
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -170,7 +171,7 @@ func TestWrappedMovementCommands(t *testing.T) {
 	assert.Equal(t, 5, model.cursor.Col, "$ command should move to end of line")
 
 	// Test space (advance cursor)
-	spaceBinding := model.registry.FindExact(" ", ModeNormal)
+	spaceBinding := model.registry.FindExact("space", ModeNormal)
 	require.NotNil(t, spaceBinding, "Binding for space not found")
 
 	// Position cursor at second-to-last position of first line

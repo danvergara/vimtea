@@ -45,20 +45,18 @@ func TestViewportCursorVisibility(t *testing.T) {
 
 	model.width = 80
 	model.height = 20
-	model.viewport.Width = 80
-	model.viewport.Height = 20
 
 	model.cursor = newCursor(5, 0)
-	model.viewport.YOffset = 0
+	model.yOffset = 0
 
 	model.ensureCursorVisible()
-	assert.Equal(t, 0, model.viewport.YOffset, "Viewport should not scroll when cursor is already visible")
+	assert.Equal(t, 0, model.yOffset, "Viewport should not scroll when cursor is already visible")
 
 	model.cursor = newCursor(30, 0)
 
 	model.ensureCursorVisible()
-	assert.GreaterOrEqual(t, model.cursor.Row, model.viewport.YOffset, "Cursor row should be within or after viewport start")
-	assert.Less(t, model.cursor.Row, model.viewport.YOffset+model.height, "Cursor row should be within viewport end")
+	assert.GreaterOrEqual(t, model.cursor.Row, model.yOffset, "Cursor row should be within or after viewport start")
+	assert.Less(t, model.cursor.Row, model.yOffset+model.height, "Cursor row should be within viewport end")
 }
 
 func TestCursorBoundaryConditions(t *testing.T) {
