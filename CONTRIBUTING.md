@@ -48,7 +48,7 @@ When submitting a pull request, please:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/kujtimiihoxha/vimtea.git
+   git clone https://github.com/danvergara/vimtea.git
    cd vimtea
    ```
 

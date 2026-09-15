@@ -2,8 +2,8 @@
 
 VimTea is a lightweight, Vim-inspired text editor for the terminal, built with Go and the [Bubble Tea](https://github.com/charmbracelet/bubbletea) TUI framework. It provides a modular, extensible foundation for building Vim-like text editors in your terminal applications.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/kujtimiihoxha/vimtea.svg)](https://pkg.go.dev/github.com/kujtimiihoxha/vimtea)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kujtimiihoxha/vimtea)](https://goreportcard.com/report/github.com/kujtimiihoxha/vimtea)
+[![Go Reference](https://pkg.go.dev/badge/github.com/danvergara/vimtea.svg)](https://pkg.go.dev/github.com/kujtimiihoxha/vimtea)
+[![Go Report Card](https://goreportcard.com/badge/github.com/danvergara/vimtea)](https://goreportcard.com/report/github.com/danvergara/vimtea)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ![VimTea Demo](./assets/demo.gif)
@@ -26,7 +26,7 @@ VimTea is a lightweight, Vim-inspired text editor for the terminal, built with G
 ## Installation
 
 ```bash
-go get github.com/kujtimiihoxha/vimtea
+go get github.com/danvergara/vimtea
 ```
 
 ## Code Structure
@@ -53,7 +53,7 @@ import (
     "log"
 
     tea "github.com/charmbracelet/bubbletea"
-    "github.com/kujtimiihoxha/vimtea"
+    "github.com/danvergara/vimtea"
 )
 
 func main() {
@@ -77,7 +77,7 @@ import (
     "log"
 
     tea "github.com/charmbracelet/bubbletea"
-    "github.com/kujtimiihoxha/vimtea"
+    "github.com/danvergara/vimtea"
 )
 
 func main() {
@@ -109,7 +109,7 @@ import (
     "log"
 
     tea "github.com/charmbracelet/bubbletea"
-    "github.com/kujtimiihoxha/vimtea"
+    "github.com/danvergara/vimtea"
 )
 
 func main() {
@@ -142,7 +142,7 @@ import (
     "log"
 
     tea "github.com/charmbracelet/bubbletea"
-    "github.com/kujtimiihoxha/vimtea"
+    "github.com/danvergara/vimtea"
 )
 
 func main() {
@@ -171,7 +171,7 @@ import (
 
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
-    "github.com/kujtimiihoxha/vimtea"
+    "github.com/danvergara/vimtea"
 )
 
 func main() {
