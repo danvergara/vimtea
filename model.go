@@ -14,6 +14,11 @@ import (
 	"golang.design/x/clipboard"
 )
 
+const (
+	defaultHeight = 6
+	defaultWidth  = 40
+)
+
 // EditorMode represents the current mode of the editor
 type EditorMode int
 
@@ -68,7 +73,7 @@ type Editor interface {
 	SetStatusMessage(msg string) tea.Cmd
 
 	// SetSize updates the editor's dimensions when the terminal window is resized
-	SetSize(width, height int) (tea.Model, tea.Cmd)
+	SetSize(width, height int)
 
 	// Tick sends a tick message to the editor
 	Tick() tea.Cmd
@@ -214,6 +219,8 @@ func NewEditor(opts ...EditorOption) Editor {
 		m.clipboardCh = clipboard.Watch(context.Background(), clipboard.FmtText)
 	}
 
+	m.SetSize(defaultWidth, defaultHeight)
+
 	// Register default key bindings
 	registerBindings(m)
 	return m
@@ -270,7 +277,8 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeypress(msg)
 	case tea.WindowSizeMsg:
 		if m.fullScreen {
-			return m.SetSize(msg.Width, msg.Height)
+			m.SetSize(msg.Width, msg.Height)
+			return m, nil
 		}
 	case cursorBlinkMsg:
 		// Handle cursor blinking animation
@@ -347,7 +355,7 @@ func (m *editorModel) GetSelectionBoundary() (Cursor, Cursor) {
 }
 
 // SetSize updates the editor's dimensions when the terminal window is resized
-func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
+func (m *editorModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 
@@ -358,7 +366,6 @@ func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
 
 	// Ensure cursor is visible after resize
 	m.ensureCursorVisible()
-	return m, nil
 }
 
 // handleKeypress processes keyboard input based on the current editor mode
@@ -631,8 +638,8 @@ func WithEnableModeCommand(enable bool) EditorOption {
 	}
 }
 
-// WithEnableStatusBar enables or disables the status bar at the bottom
-func WithEnableStatusBar(enable bool) EditorOption {
+// WithStatusBar enables or disables the status bar at the bottom
+func WithStatusBar(enable bool) EditorOption {
 	return func(o *options) {
 		o.EnableStatusBar = enable
 	}

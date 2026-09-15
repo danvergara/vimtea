@@ -265,8 +265,7 @@ func TestEditorWindowResize(t *testing.T) {
 	assert.Equal(t, 0, model.height, "Initial window height should be 0")
 
 	newWidth, newHeight := 80, 24
-	updated2, _ := model.SetSize(newWidth, newHeight)
-	model = updated2.(*editorModel)
+	model.SetSize(newWidth, newHeight)
 
 	assert.Equal(t, newWidth, model.width, "Window width should be updated to new width")
 
