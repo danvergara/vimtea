@@ -238,38 +238,6 @@ func newCommandRegistry() *CommandRegistry {
 	}
 }
 
-// Add registers a new key binding with the registry
-// It automatically builds prefix maps for multi-key sequences
-func (r *BindingRegistry) Add(key string, cmd Command, mode EditorMode, help string) {
-	binding := internalKeyBinding{
-		Key:     key,
-		Help:    help,
-		Command: cmd,
-		Mode:    mode,
-	}
-
-	// Initialize mode map if needed
-	if r.exactBindings[mode] == nil {
-		r.exactBindings[mode] = make(map[string]internalKeyBinding)
-	}
-	r.exactBindings[mode][key] = binding
-
-	// Initialize prefix map if needed
-	if r.prefixBindings[mode] == nil {
-		r.prefixBindings[mode] = make(map[string]bool)
-	}
-
-	// Register all prefixes of the key sequence
-	// For example, for "dw", register "d" as a prefix
-	for i := 1; i < len(key); i++ {
-		prefix := key[:i]
-		r.prefixBindings[mode][prefix] = true
-	}
-
-	// Add to the list of all bindings
-	r.allBindings = append(r.allBindings, binding)
-}
-
 // RegisterKey registers a new key binding with the registry
 // It automatically builds prefix maps for multi-key sequences
 func (r *BindingRegistry) RegisterKey(b key.Binding, cmd Command, mode EditorMode) {

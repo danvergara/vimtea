@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
@@ -534,9 +535,16 @@ func (m *editorModel) GetBuffer() Buffer {
 
 // AddBinding registers a new key binding with the editor
 func (m *editorModel) AddBinding(binding KeyBinding) {
-	m.registry.Add(binding.Key, func(em *editorModel) tea.Cmd {
-		return binding.Handler(m.GetBuffer())
-	}, binding.Mode, binding.Description)
+	m.registry.RegisterKey(
+		key.NewBinding(
+			key.WithKeys(binding.Key),
+			key.WithHelp(binding.Key, binding.Description),
+		),
+		func(em *editorModel) tea.Cmd {
+			return binding.Handler(m.GetBuffer())
+		},
+		binding.Mode,
+	)
 }
 
 // AddCommand registers a new command that can be executed in command mode
