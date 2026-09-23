@@ -240,7 +240,7 @@ func TestEditorOptions(t *testing.T) {
 	editor := NewEditor(
 		WithContent("Test content"),
 		WithFileName("test.go"),
-		WithEnableStatusBar(false),
+		WithStatusBar(false),
 		WithBlinkInterval(200*time.Millisecond),
 	)
 

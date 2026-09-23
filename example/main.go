@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/danvergara/vimtea"
 )
@@ -38,6 +39,9 @@ func main() {
 		log.Fatalf("Failed to read file: %v", err)
 	}
 
+	km := vimtea.DefaultKeyMap()
+	km.Normal.MoveCursorDown = key.NewBinding(key.WithKeys("s", "down"), key.WithHelp("s", "move down"))
+
 	// Create a new editor with the file contents
 	// WithFileName is used for syntax highlighting
 	editor := vimtea.NewEditor(
@@ -45,6 +49,8 @@ func main() {
 		vimtea.WithFileName("example/main.go"),
 		vimtea.WithFullScreen(),
 		vimtea.WithAltScreen(),
+		vimtea.WithStatusBar(true),
+		vimtea.WithKeyMap(km),
 	)
 
 	// Add a custom key binding for quitting with Ctrl+C

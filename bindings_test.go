@@ -3,6 +3,7 @@ package vimtea
 import (
 	"testing"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/stretchr/testify/assert"
@@ -12,13 +13,17 @@ import (
 func TestBindingRegistryBasics(t *testing.T) {
 	registry := newBindingRegistry()
 
-	registry.Add("a", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Test binding A")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "Test binding A")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
-	registry.Add("b", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeInsert, "Test binding B")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "Test binding B")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeInsert,
+	)
 
 	binding := registry.FindExact("a", ModeNormal)
 	require.NotNil(t, binding, "Binding for 'a' in normal mode not found")
@@ -36,17 +41,23 @@ func TestBindingRegistryBasics(t *testing.T) {
 func TestBindingRegistryPrefix(t *testing.T) {
 	registry := newBindingRegistry()
 
-	registry.Add("dd", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Delete line")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("dd"), key.WithHelp("dd", "Delete line")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
-	registry.Add("d$", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Delete to end of line")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("d$"), key.WithHelp("d$", "Delete to end of line")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
-	registry.Add("dw", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Delete word")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("dw"), key.WithHelp("dw", "Delete word")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
 	// Test prefix detection
 	isPrefix := registry.IsPrefix("d", ModeNormal)
@@ -66,17 +77,23 @@ func TestBindingRegistryPrefix(t *testing.T) {
 func TestBindingRegistryGetForMode(t *testing.T) {
 	registry := newBindingRegistry()
 
-	registry.Add("a", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Test Normal A")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("a"), key.WithHelp("a", "Test Normal A")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
-	registry.Add("b", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeNormal, "Test Normal B")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "Test Normal B")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeNormal,
+	)
 
-	registry.Add("c", func(m *editorModel) tea.Cmd {
-		return nil
-	}, ModeInsert, "Test Insert C")
+	registry.RegisterKey(
+		key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "Test Insert C")),
+		func(m *editorModel) tea.Cmd { return nil },
+		ModeInsert,
+	)
 
 	normalBindings := registry.GetForMode(ModeNormal)
 	assert.Len(t, normalBindings, 2, "Expected 2 bindings for normal mode")

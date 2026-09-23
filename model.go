@@ -9,9 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"golang.design/x/clipboard"
+)
+
+const (
+	defaultHeight = 6
+	defaultWidth  = 40
 )
 
 // EditorMode represents the current mode of the editor
@@ -68,7 +74,7 @@ type Editor interface {
 	SetStatusMessage(msg string) tea.Cmd
 
 	// SetSize updates the editor's dimensions when the terminal window is resized
-	SetSize(width, height int) (tea.Model, tea.Cmd)
+	SetSize(width, height int)
 
 	// Tick sends a tick message to the editor
 	Tick() tea.Cmd
@@ -124,6 +130,8 @@ type editorModel struct {
 
 	yankHighlight yankHighlight
 
+	// keyMap encodes the keybindings recognized by the widget.
+	keyMap   KeyMap
 	registry *BindingRegistry // Registry for key bindings
 	commands *CommandRegistry // Registry for commands
 }
@@ -146,6 +154,7 @@ type options struct {
 	RelativeNumbers        bool           // Whether to show relative line numbers
 	FullScreen             bool           // Whether to use the full terminal screen
 	AltScreen              bool
+	KeyMap                 KeyMap // KeyMap
 }
 
 // EditorOption is a function that modifies the editor options
@@ -209,10 +218,17 @@ func NewEditor(opts ...EditorOption) Editor {
 		registry:       newBindingRegistry(),
 		commands:       newCommandRegistry(),
 		initialContent: options.Content,
+		keyMap:         options.KeyMap,
 	}
 	if clipboardOK {
 		m.clipboardCh = clipboard.Watch(context.Background(), clipboard.FmtText)
 	}
+
+	if m.keyMap.IsZero() {
+		m.keyMap = DefaultKeyMap()
+	}
+
+	m.SetSize(defaultWidth, defaultHeight)
 
 	// Register default key bindings
 	registerBindings(m)
@@ -270,7 +286,8 @@ func (m *editorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKeypress(msg)
 	case tea.WindowSizeMsg:
 		if m.fullScreen {
-			return m.SetSize(msg.Width, msg.Height)
+			m.SetSize(msg.Width, msg.Height)
+			return m, nil
 		}
 	case cursorBlinkMsg:
 		// Handle cursor blinking animation
@@ -347,7 +364,7 @@ func (m *editorModel) GetSelectionBoundary() (Cursor, Cursor) {
 }
 
 // SetSize updates the editor's dimensions when the terminal window is resized
-func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
+func (m *editorModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
 
@@ -358,7 +375,6 @@ func (m *editorModel) SetSize(width, height int) (tea.Model, tea.Cmd) {
 
 	// Ensure cursor is visible after resize
 	m.ensureCursorVisible()
-	return m, nil
 }
 
 // handleKeypress processes keyboard input based on the current editor mode
@@ -519,9 +535,16 @@ func (m *editorModel) GetBuffer() Buffer {
 
 // AddBinding registers a new key binding with the editor
 func (m *editorModel) AddBinding(binding KeyBinding) {
-	m.registry.Add(binding.Key, func(em *editorModel) tea.Cmd {
-		return binding.Handler(m.GetBuffer())
-	}, binding.Mode, binding.Description)
+	m.registry.RegisterKey(
+		key.NewBinding(
+			key.WithKeys(binding.Key),
+			key.WithHelp(binding.Key, binding.Description),
+		),
+		func(em *editorModel) tea.Cmd {
+			return binding.Handler(m.GetBuffer())
+		},
+		binding.Mode,
+	)
 }
 
 // AddCommand registers a new command that can be executed in command mode
@@ -631,8 +654,8 @@ func WithEnableModeCommand(enable bool) EditorOption {
 	}
 }
 
-// WithEnableStatusBar enables or disables the status bar at the bottom
-func WithEnableStatusBar(enable bool) EditorOption {
+// WithStatusBar enables or disables the status bar at the bottom
+func WithStatusBar(enable bool) EditorOption {
 	return func(o *options) {
 		o.EnableStatusBar = enable
 	}
@@ -726,5 +749,11 @@ func WithFullScreen() EditorOption {
 func WithAltScreen() EditorOption {
 	return func(o *options) {
 		o.AltScreen = true
+	}
+}
+
+func WithKeyMap(km KeyMap) EditorOption {
+	return func(o *options) {
+		o.KeyMap = km
 	}
 }
