@@ -129,6 +129,8 @@ type editorModel struct {
 
 	yankHighlight yankHighlight
 
+	// keyMap encodes the keybindings recognized by the widget.
+	keyMap   KeyMap
 	registry *BindingRegistry // Registry for key bindings
 	commands *CommandRegistry // Registry for commands
 }
@@ -151,6 +153,7 @@ type options struct {
 	RelativeNumbers        bool           // Whether to show relative line numbers
 	FullScreen             bool           // Whether to use the full terminal screen
 	AltScreen              bool
+	KeyMap                 KeyMap // KeyMap
 }
 
 // EditorOption is a function that modifies the editor options
@@ -214,9 +217,14 @@ func NewEditor(opts ...EditorOption) Editor {
 		registry:       newBindingRegistry(),
 		commands:       newCommandRegistry(),
 		initialContent: options.Content,
+		keyMap:         options.KeyMap,
 	}
 	if clipboardOK {
 		m.clipboardCh = clipboard.Watch(context.Background(), clipboard.FmtText)
+	}
+
+	if m.keyMap.IsZero() {
+		m.keyMap = DefaultKeyMap()
 	}
 
 	m.SetSize(defaultWidth, defaultHeight)
@@ -733,5 +741,11 @@ func WithFullScreen() EditorOption {
 func WithAltScreen() EditorOption {
 	return func(o *options) {
 		o.AltScreen = true
+	}
+}
+
+func WithKeyMap(km KeyMap) EditorOption {
+	return func(o *options) {
+		o.KeyMap = km
 	}
 }
